@@ -1,112 +1,98 @@
+import random
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import sys
 import os
 from datetime import datetime
 from data_preprocess import load_data, read_and_norm, get_failure_idx
-from models import LSTM, GRU, DeTransformer
+from models.LSTM import LSTM
+from models.GRU import GRU
+from models.DeTransformer import DeTransformer
 import matplotlib.pyplot as plt
 
-def get_model_and_optim(model_name, all_config):
-    local_config = all_config[model_name]
-    if model_name == 'LSTM':
-        model = LSTM(**local_config)
-        optimizer = optim.RMSprop(model.parameters(), local_config['lr'], local_config['alpha'])
-    elif model_name == 'GRU':
-        model = GRU(**local_config)
-        optimizer = optim.Adam(model.parameters(), local_config['lr'])
-    elif model_name == 'DeTransformer':
-        model = DeTransformer(**local_config)
-        optimizer = optim.Adam(model.parameters(), local_config['lr'])
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+def get_model(model_config):
+    model_name = model_config['name']
+    if model_name == 'lstm':
+        return LSTM(**model_config)
+    elif model_name == 'gru':
+        return GRU(**model_config)
+    elif model_name == 'det':
+        return DeTransformer(**model_config)
     else:
         raise ValueError(f"Unknown model: {model_name}")
-    model.to(device=local_config['device'])
-    return model, optimizer
+    
+def get_optimizer(optim_name, model, lr, alpha=None):
+    if optim_name == 'adam':
+        return optim.Adam(model.parameters(), lr)
+    elif optim_name == 'rmsprop':
+        return optim.RMSprop(model.parameters(), lr, alpha)
+    else:
+        raise ValueError(f"Unknown optimizer: {optim_name}")
 
-def forward_prop(model_name, model, x, all_config):
-    local_config = all_config['DeTransformer']
+def forward_prop(model_config, model, x):
     decodes = None
-    if model_name == 'DeTransformer':
-        x = x.unsqueeze(-1).permute(0, 2, 1).repeat(1, local_config['K'], 1)
+    if model_config['name'] == 'det':
+        x = x.unsqueeze(-1).permute(0, 2, 1).repeat(1, model_config['feature_num'], 1)
         outputs, decodes = model(x)
     else:
         outputs = model(x.unsqueeze(-1))
 
     return outputs, decodes
 
-def get_loss(model_name, model, x, y, criterion, all_config):
-    local_config = all_config['DeTransformer']
-    outputs, decodes = forward_prop(model_name, model, x, all_config)
-    loss = criterion(outputs, y.unsqueeze(-1))
-    return loss if decodes is None else loss + local_config['alpha'] * criterion(
-        x.unsqueeze(-1).permute(0, 2, 1).repeat(1, local_config['K'], 1), decodes
-        )
+def get_loss(model_config, model, sequences, labels, criterion):
+    outputs, decodes = forward_prop(model_config, model, sequences)
+    loss = criterion(outputs, labels.unsqueeze(-1))
+    if model_config['name'] == 'det':
+        loss += model_config['alpha'] * criterion(sequences.unsqueeze(-1).permute(0, 2, 1).repeat(1, model_config['feature_num'], 1), decodes)
+    return loss
 
-# 训练
-def train(model_name, all_config):
-    config = all_config[model_name]
-    num_epochs = config['num_epochs']
-    device = config['device']
-    lr = config['lr']
-    batch_size = config['batch_size']
+def train_epoch(model_config, model, train_loader, device, optimizer, criterion):
+    model.train()
+    train_loss = 0
+    for sequences, labels in train_loader:
+        sequences, labels = sequences.to(device), labels.to(device)
+        optimizer.zero_grad()
+        loss = get_loss(model_config, model, sequences, labels, criterion)
+        loss.backward()
+        optimizer.step()
+        train_loss += loss.item()
+    train_loss /= len(train_loader)
+    return train_loss
 
-    # 数据准备
-    train_loader, test_loader = load_data(**config)
-
-    # 获取初始化的模型、优化器
-    model, optimizer= get_model_and_optim(model_name, all_config)
-    criterion = nn.MSELoss()
-
-    # 格式化当前日期时间为 "YYMMDD_HHMM"
-    timestamp = datetime.now().strftime("%y%m%d_%H%M")
-
-    # 训练循环
-    train_losses = []
-    test_losses = []
-    best_test_loss = float('inf')  # 初始化一个较大的损失值
-    for epoch in range(num_epochs):
-        model.train()
-        train_loss = 0
-        for sequences, labels in train_loader:
+def test_epoch(model_config, model, test_loader, device, criterion):
+    model.eval()
+    test_loss = 0
+    with torch.no_grad():
+        for sequences, labels in test_loader:
             sequences, labels = sequences.to(device), labels.to(device)
-            optimizer.zero_grad()
-            loss = get_loss(model_name, model, sequences, labels, criterion, all_config)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-        train_loss /= len(train_loader)
-        train_losses.append(train_loss)  # 记录训练损失
+            test_loss += get_loss(model_config, model, sequences, labels, criterion).item()
+    test_loss /= len(test_loader)
+    return test_loss
 
-        # 测试
-        model.eval()
-        test_loss = 0
-        with torch.no_grad():
-            for sequences, labels in test_loader:
-                sequences, labels = sequences.to(device), labels.to(device)
-                test_loss += get_loss(model_name, model, sequences, labels, criterion, all_config).item()
-        test_loss /= len(test_loader)
-        test_losses.append(test_loss)  # 记录测试损失
-        print(f"Epoch [{epoch+1}/{num_epochs}], Training Loss: {train_loss:.8f}, Test Loss: {test_loss:.8f}")
+def predict(model_config, model, start_idx, actual_seq, seq_length, device):
+    '''
+    迭代预测
 
-        # 保存测试损失最低的模型
-        if test_loss < best_test_loss:
-            best_test_loss = test_loss
-            dir = f'checkpoints/{model_name}_{timestamp}_lr-{lr}_bs-{batch_size}'
-            os.makedirs(dir, exist_ok=True)
-            torch.save(model.state_dict(), f'{dir}/epc-{epoch+1}.pth')
-            print(f"New best model saved")
+    输入：带参数的模型、预测点、真实值曲线
 
-def predict(model_name, model, start_idx, actual_seq, window_size, device, all_config):
+    输出：预测曲线（包含预测点前的真实值）
+    '''
+    start_idx = max(start_idx, seq_length)
     with torch.no_grad():
         num_preds = len(actual_seq) - start_idx  # 让预测曲线与真实曲线同时结束
-        preds = actual_seq[start_idx - window_size:start_idx]
+        preds = actual_seq[:start_idx]
         for _ in range(num_preds):
-            input_seq = torch.tensor(preds[-window_size:], dtype=torch.float32).to(device).unsqueeze(0)
-            pred, _ = forward_prop(model_name, model, input_seq, all_config)
+            input_seq = torch.tensor(preds[-seq_length:], dtype=torch.float32).to(device).unsqueeze(0)
+            pred, _ = forward_prop(model_config, model, input_seq)
             preds = np.append(preds, pred.item())
-    return preds[window_size:]
+    return preds
 
 def test(model_name, model_path, all_config):
     # 超参数
@@ -123,19 +109,19 @@ def test(model_name, model_path, all_config):
 
     # 获取预测起始点，迭代预测
     start_idx = int(failure_time[config['test_battery_name']] * config['start_point'])
-    pred_seq = predict(model_name, model, start_idx, actual_seq, config['window_size'], config['device'], all_config)
+    pred_seq = predict(model_name, model, start_idx, actual_seq, config['seq_length'], config['device'], all_config)
 
     return actual_seq, pred_seq, start_idx
 
 def cal_metrics(actual_seq, pred_seq, start_idx, failure_threshold=0.7):
     # RE
     actual_failure_idx = get_failure_idx(actual_seq, failure_threshold)
-    pred_failure_idx = get_failure_idx(pred_seq, failure_threshold) + start_idx
+    pred_failure_idx = get_failure_idx(pred_seq, failure_threshold)
     re = abs(actual_failure_idx - pred_failure_idx) / (actual_failure_idx + 1)
     # RMSE
-    rmse = np.sqrt(np.mean((actual_seq[start_idx:] - pred_seq) ** 2))    
+    rmse = np.sqrt(np.mean((actual_seq[start_idx:] - pred_seq[start_idx:]) ** 2))    
     # MAE
-    mae = np.mean(np.abs(actual_seq[start_idx:] - pred_seq))
+    mae = np.mean(np.abs(actual_seq[start_idx:] - pred_seq[start_idx:]))
     return re, rmse, mae
 
 # 绘制曲线

@@ -15,6 +15,8 @@ data:
 # 模型配置
 models:
   LSTM:
+    name: lstm
+
     seq_length: 64
 
     # 网络参数
@@ -29,10 +31,12 @@ models:
     metric: re
     epochs: 200
     batch_size: 32
-    lr: 1e-3
+    lr: 0.001
     alpha: 0.99  # 优化器的超参数
 
   GRU:
+    name: gru
+
     seq_length: 64
 
     # 网络参数
@@ -48,9 +52,11 @@ models:
     metric: re
     epochs: 200
     batch_size: 32
-    lr: 1e-3
+    lr: 0.001
 
   DeTransformer:
+    name: det
+
     # 网络参数
     feature_size: 64  # seq_length
     hidden_dim: 16
@@ -67,9 +73,10 @@ models:
     metric: re
     epochs: 200
     batch_size: 32
-    lr: 1e-3
+    lr: 0.001
 
 # 其他配置
 start_points: [0.3, 0.5, 0.7]
 model_save_dir: saved_models/
 device: cuda:0
+seeds: [42, 123, 2024, 7, 99]

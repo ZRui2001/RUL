@@ -21,18 +21,18 @@ def read_and_norm(data_path, rated_capacity=1.1, failure_threshold=0.7):
     return norm_data, failure_time
 
 # 数据划分：battery_data（字典） -> train_data, test_data
-def split_data(battery_data, test_battery_name):
-    train_data = {name: data for name, data in battery_data.items() if name != test_battery_name}
-    test_data = battery_data[test_battery_name]
+def split_data(battery_data, test_bat):
+    train_data = {name: data for name, data in battery_data.items() if name != test_bat}
+    test_data = battery_data[test_bat]
     return train_data, test_data
 
 # 滑动窗口生成样本：sequence_data ->（sequences，labels）
-def create_sequences(data, window_size=64):
+def create_sequences(data, seq_length=64):
     sequences = []
     labels = []
-    for i in range(len(data) - window_size):
-        sequence = data[i:i + window_size]
-        label = data[i + window_size]
+    for i in range(len(data) - seq_length):
+        sequence = data[i:i + seq_length]
+        label = data[i + seq_length]
         sequences.append(sequence)
         labels.append(label)
     return sequences, labels
@@ -51,21 +51,15 @@ class TimeSeriesDataset(Dataset):
     def __getitem__(self, idx):
         return self.sequences[idx], self.labels[idx]
 
-# 数据准备（全过程）：data_file(.npy) -> train_loader, test_loader
-def load_data(test_battery_name, data_path, rated_capacity=1.1, window_size=64, batch_size=32, failure_threshold=0.7, **kwargs):
-    # 数据读取、标准化
-    battery_data, _ = read_and_norm(data_path=data_path, rated_capacity=rated_capacity, failure_threshold=failure_threshold)
-
-    # 数据集划分：选择一个电池作为测试集，其余为训练集
-    train_data, test_data = split_data(battery_data=battery_data, test_battery_name=test_battery_name)
-
+# dataloader：train_data(dict), test_data -> train_loader, test_loader
+def load_data(train_data, test_data, seq_length, batch_size):
     # 滑动窗口：生成序列数据样本和标签
     train_sequences, train_labels = [], []
     for _, data in train_data.items():
-        sequences, labels = create_sequences(data, window_size=window_size)
+        sequences, labels = create_sequences(data, seq_length=seq_length)
         train_sequences.extend(sequences)
         train_labels.extend(labels)
-    test_sequences, test_labels = create_sequences(test_data, window_size=window_size)
+    test_sequences, test_labels = create_sequences(test_data, seq_length=seq_length)
 
     # 创建 DataLoader
     train_dataset = TimeSeriesDataset(train_sequences, train_labels)
