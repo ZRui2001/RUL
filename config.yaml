@@ -1,0 +1,75 @@
+# 数据配置
+data:
+  CALCE:
+    data_dir: data/CALCE/
+    data_path: data/CALCE/CALCE.npy
+    rated_capacity: 1.1
+    failure_threshold: 0.7
+    test_bat: CS2_35
+
+    # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
+    seq_length: 64 
+  NASA:
+    file_path: data/NASA/NASA.npy
+
+# 模型配置
+models:
+  LSTM:
+    seq_length: 64
+
+    # 网络参数
+    input_size: 1
+    hidden_sizes: [50, 100]
+    output_size: 1
+    dropout: 0.8
+
+    # 训练
+    optimizer: rmsprop
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 1e-3
+    alpha: 0.99  # 优化器的超参数
+
+  GRU:
+    seq_length: 64
+
+    # 网络参数
+    input_size: 1
+    hidden_size: 64
+    output_size: 1
+    num_layers: 4
+    dropout: 0.5
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 1e-3
+
+  DeTransformer:
+    # 网络参数
+    feature_size: 64  # seq_length
+    hidden_dim: 16
+    feature_num: 16  # 只有容量的话,重复feature_num次
+    num_layers: 3
+    nhead: 1
+    dropout: 1e-3
+    noise_level: 0.01
+    alpha: 0.1  # 正则化系数
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 1e-3
+
+# 其他配置
+start_points: [0.3, 0.5, 0.7]
+model_save_dir: saved_models/
+device: cuda:0
