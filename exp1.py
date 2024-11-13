@@ -12,7 +12,7 @@ from tqdm import tqdm
 EXP_NUM = 1
 
 # 测试模型
-model_names = ['LSTM', 'GRU', 'DeTransformer']
+model_names = ['lstm', 'gru', 'det']
 
 # 获取配置参数
 with open('config.yaml', 'r', encoding='utf-8') as file:
@@ -20,7 +20,7 @@ with open('config.yaml', 'r', encoding='utf-8') as file:
 data_config, models_config, start_points, model_save_dir, seeds = (
     config['data']['CALCE'],       # 仅使用 CALCE
     config['models'],
-    config['start_points'],        # [0.3, 0.5, 0.7]
+    config['start_points'],        # [0.0, 0.3, 0.5, 0.7]
     config['model_save_dir'],
     config['seeds']
 )

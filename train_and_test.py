@@ -4,18 +4,22 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from datetime import datetime
 from data_preprocess import load_data, read_and_norm, get_failure_idx
 from models.LSTM import LSTM
 from models.GRU import GRU
 from models.DeTransformer import DeTransformer
-import matplotlib.pyplot as plt
+from typing import List, Dict
 
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def get_model(model_config, device):
     model_name = model_config['name']
@@ -76,7 +80,7 @@ def test_epoch(model_config, model, test_loader, device, criterion):
     test_loss /= len(test_loader)
     return test_loss
 
-def predict(model_config, model, start_idx, actual_seq, seq_length, device):
+def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, device):
     '''
     迭代预测
 
@@ -84,6 +88,7 @@ def predict(model_config, model, start_idx, actual_seq, seq_length, device):
 
     输出：预测曲线（包含预测点前的真实值）
     '''
+    start_idx = (get_failure_idx(actual_seq, failure_threshold) + 1) * sp
     start_idx = max(start_idx, seq_length)
     with torch.no_grad():
         num_preds = len(actual_seq) - start_idx  # 让预测曲线与真实曲线同时结束
@@ -126,12 +131,22 @@ def cal_metrics(actual_seq, pred_seq, start_idx, failure_threshold=0.7):
     mae = np.mean(np.abs(actual_seq[start_idx:] - pred_seq[start_idx:]))
     return re, rmse, mae
 
-# 绘制曲线
-def plot(model_names, actual_seq, pred_seqs, start_idx, failure_threshold=0.7, test_battery_name='CS2_35'):
-    colors = ['blue', 'green', 'orange', 'purple']
-    plt.figure(figsize=(12, 6))
-    for i in range(len(pred_seqs)):
-        plt.plot(range(start_idx, len(pred_seqs[i]) + start_idx), pred_seqs[i], color=colors[i], linestyle='--', linewidth=2, label=model_names[i])  # 预测值曲线
+def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, seq_length, test_bat, figsize=(12, 6)):
+    '''
+    画多条预测曲线, 并自动分配不同颜色.
+
+    参数:
+        actual_seq: Actual value sequence.
+        pred_seqs (Dict): Prediction result dictionary, with the following structure:
+            - key (str): Name of model.
+            - val (List): Prediction sequence, including actual values ahead start point.
+    '''
+    start_idx = (get_failure_idx(actual_seq, failure_threshold) + 1) * sp
+    start_idx = max(start_idx, seq_length)
+    colors = cm.viridis(np.linspace(0, 1, len(pred_seqs)))
+    plt.figure(figsize)
+    for (model_key, pred_seq), color in zip(pred_seqs.items(), colors):
+        plt.plot(range(start_idx, len(pred_seq)), pred_seq[start_idx:], color=color, linestyle='--', linewidth=1.5, label=model_key)  # 预测值曲线
     plt.plot(actual_seq, color='darkblue', linestyle='-', linewidth=1.5, label='Actual SOH')  # 真实值曲线
     plt.axhline(y=failure_threshold, color='red', linestyle='--', linewidth=2.5, label='Failure Threshold')  # 失效阈值线
     plt.axvline(x=start_idx, color='gray', linestyle='--', linewidth=1, label='Prediction Start Point')  # 预测起始点
@@ -139,7 +154,7 @@ def plot(model_names, actual_seq, pred_seqs, start_idx, failure_threshold=0.7, t
     plt.xlabel('Cycles')
     plt.ylabel('SOH')
     plt.legend()
-    plt.title(f'SOH degredation of {test_battery_name}')
+    plt.title(f'SOH degredation of {test_bat} (SP = {sp})')
     plt.show()
 
 def eval_and_plot(model_names, model_paths, all_config):
