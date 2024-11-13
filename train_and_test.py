@@ -88,7 +88,8 @@ def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, 
 
     输出：预测曲线（包含预测点前的真实值）
     '''
-    start_idx = (get_failure_idx(actual_seq, failure_threshold) + 1) * sp
+    model.eval()
+    start_idx = int((get_failure_idx(actual_seq, failure_threshold) + 1) * sp)
     start_idx = max(start_idx, seq_length)
     with torch.no_grad():
         num_preds = len(actual_seq) - start_idx  # 让预测曲线与真实曲线同时结束
@@ -141,10 +142,10 @@ def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, s
             - key (str): Name of model.
             - val (List): Prediction sequence, including actual values ahead start point.
     '''
-    start_idx = (get_failure_idx(actual_seq, failure_threshold) + 1) * sp
+    start_idx = int((get_failure_idx(actual_seq, failure_threshold) + 1) * sp)
     start_idx = max(start_idx, seq_length)
     colors = cm.viridis(np.linspace(0, 1, len(pred_seqs)))
-    plt.figure(figsize)
+    plt.figure(figsize=figsize)
     for (model_key, pred_seq), color in zip(pred_seqs.items(), colors):
         plt.plot(range(start_idx, len(pred_seq)), pred_seq[start_idx:], color=color, linestyle='--', linewidth=1.5, label=model_key)  # 预测值曲线
     plt.plot(actual_seq, color='darkblue', linestyle='-', linewidth=1.5, label='Actual SOH')  # 真实值曲线
