@@ -1,5 +1,5 @@
 """
-实验1: RE作为模型参数保存的标准
+实验2: 实验1基础上，将失效后的数据截去不用
 """
 
 import pandas as pd
@@ -9,7 +9,7 @@ from config_loader import *
 from tqdm import tqdm
 
 # 实验编号
-EXP_NUM = 1
+EXP_NUM = 2
 
 # 测试模型
 model_names = ['lstm', 'gru', 'det']
@@ -34,7 +34,7 @@ for i in tqdm(range(len(seeds))):
         model_label = 'exp-{}_{}_s-{}'.format(EXP_NUM, model_config['name'], i+1)
 
         # dataloader
-        norm_data, failure_time = read_and_norm(data_path, rated_capacity, failure_threshold)  # 包括失效后数据
+        norm_data, failure_time = read_and_norm(data_path, rated_capacity, failure_threshold, False)  # 包括失效后数据
         train_data, test_data = split_data(norm_data, test_bat)
         train_loader, test_loader = load_data(train_data, test_data, seq_length, batch_size)
 
@@ -70,6 +70,3 @@ for i in tqdm(range(len(seeds))):
 
 results_df = pd.DataFrame(results).sort_values(by=['Seed', 'Model']).reset_index(drop=True)
 results_df.to_csv(f"exp_results/exp-{EXP_NUM}.csv", index=False)
-# # 逐行打印每个 (seed, model_name) 组合的最佳结果
-# for (seed, model_name), result in sorted(results.items(), key=lambda x: (x[0][1], x[0][0])):
-#     print(f"Seed: {seed}, Model: {model_name}, Best RE: {result['re']:.3f}, Best RMSE: {result['rmse']:.4f}, Best MAE: {result['mae']:.4f}")

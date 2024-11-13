@@ -4,10 +4,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
+import re
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from datetime import datetime
-from data_preprocess import load_data, read_and_norm, get_failure_idx
+from data_preprocess import *
 from models.LSTM import LSTM
 from models.GRU import GRU
 from models.DeTransformer import DeTransformer
@@ -119,17 +120,22 @@ def test(model_name, model_path, all_config):
 
     return actual_seq, pred_seq, start_idx
 
-def cal_metrics(actual_seq, pred_seq, start_idx, failure_threshold=0.7):
+def cal_metrics(actual_seq, pred_seq, sp, seq_length, failure_threshold=0.7):
+    start_idx = int((get_failure_idx(actual_seq, failure_threshold) + 1) * sp)
+    start_idx = max(start_idx, seq_length)
     # RE
     actual_failure_idx = get_failure_idx(actual_seq, failure_threshold)
     pred_failure_idx = get_failure_idx(pred_seq, failure_threshold)
     re = abs(actual_failure_idx - pred_failure_idx) / (actual_failure_idx + 1)
     if np.isnan(re):
         re = 1.000
+
+    # 指标计算的时间边界，设为真实值的失效点
+    end_idx = actual_failure_idx    
     # RMSE
-    rmse = np.sqrt(np.mean((actual_seq[start_idx:] - pred_seq[start_idx:]) ** 2))    
+    rmse = np.sqrt(np.mean((actual_seq[start_idx:(end_idx + 1)] - pred_seq[start_idx:(end_idx + 1)]) ** 2))    
     # MAE
-    mae = np.mean(np.abs(actual_seq[start_idx:] - pred_seq[start_idx:]))
+    mae = np.mean(np.abs(actual_seq[start_idx:(end_idx + 1)] - pred_seq[start_idx:(end_idx + 1)]))
     return re, rmse, mae
 
 def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, seq_length, test_bat, figsize=(12, 6)):
@@ -173,3 +179,13 @@ def eval_and_plot(model_names, model_paths, all_config):
         pred_seqs.append(pred_seq)
 
     plot(model_names, actual_seq, pred_seqs, start_idx, failure_threshold, test_battery_name)
+
+def parse_model_filename(filename, pattern=r"exp-(\d+)_(\w+)_s-(\d+)\.pth"):
+    match = re.match(pattern, filename)
+
+    if match:
+        exp_num = int(match.group(1))     
+        model_name = match.group(2)  
+        s_num = int(match.group(3))     
+        return exp_num, model_name, s_num
+    raise ValueError(f"不符合预期格式的文件名：{filename}")
