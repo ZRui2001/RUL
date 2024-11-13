@@ -17,14 +17,14 @@ def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-def get_model(model_config):
+def get_model(model_config, device):
     model_name = model_config['name']
     if model_name == 'lstm':
-        return LSTM(**model_config)
+        return LSTM(**model_config).to(device)
     elif model_name == 'gru':
-        return GRU(**model_config)
+        return GRU(**model_config).to(device)
     elif model_name == 'det':
-        return DeTransformer(**model_config)
+        return DeTransformer(**model_config).to(device)
     else:
         raise ValueError(f"Unknown model: {model_name}")
     
@@ -118,6 +118,8 @@ def cal_metrics(actual_seq, pred_seq, start_idx, failure_threshold=0.7):
     actual_failure_idx = get_failure_idx(actual_seq, failure_threshold)
     pred_failure_idx = get_failure_idx(pred_seq, failure_threshold)
     re = abs(actual_failure_idx - pred_failure_idx) / (actual_failure_idx + 1)
+    if np.isnan(re):
+        re = 1.000
     # RMSE
     rmse = np.sqrt(np.mean((actual_seq[start_idx:] - pred_seq[start_idx:]) ** 2))    
     # MAE

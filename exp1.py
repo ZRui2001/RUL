@@ -15,7 +15,7 @@ EXP_NUM = 1
 model_names = ['LSTM', 'GRU', 'DeTransformer']
 
 # 获取配置参数
-with open('config.yaml', 'r') as file:
+with open('config.yaml', 'r', encoding='utf-8') as file:
     config = yaml.safe_load(file)
 data_config, models_config, start_points, model_save_dir, seeds = (
     config['data']['CALCE'],       # 仅使用 CALCE
@@ -34,6 +34,7 @@ data_path, test_bat, seq_length, rated_capacity, failure_threshold = (
 device = torch.device(config['device'] if torch.cuda.is_available() else "cpu")
 
 # 实验开始
+results = {}
 for i in tqdm(range(len(seeds))):
     # 设置随机种子
     set_seed(seeds[i])
@@ -56,12 +57,12 @@ for i in tqdm(range(len(seeds))):
         train_loader, test_loader = load_data(train_data, test_data, seq_length, batch_size)
 
         # 模型、优化器
-        model = get_model(model_config)
+        model = get_model(model_config, device)
         optimizer = get_optimizer(optim_name, model, lr, alpha)
         criterion = nn.MSELoss()
 
         # 训练，保存测试集上 re 最好的模型
-        best_metric_val = float('inf')
+        best_re, best_rmse, best_mae = float('inf'), float('inf'), float('inf')
         for epoch in range(epochs):
             train_loss = train_epoch(model_config, model, train_loader, device, optimizer, criterion)
             test_loss = test_epoch(model_config, model, test_loader, device, criterion)
@@ -70,9 +71,18 @@ for i in tqdm(range(len(seeds))):
             pred_seq = predict(model_config, model, start_idx, actual_seq, seq_length, device)
             re, rmse, mae = cal_metrics(actual_seq, pred_seq, start_idx, failure_threshold)
 
-            print(f"Seed: {i+1}, Model: {model_name}, Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.8f}, Test Loss: {test_loss:.8f}, Test RE: {re:.3f}, Test RMSE: {rmse:.4f}, Test MAE: {mae:4f}")
+            print(f"Seed: {i+1}, Model: {model_name}, Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.8f}, Test Loss: {test_loss:.8f}, Test RE: {re:.3f}, Test RMSE: {rmse:.4f}, Test MAE: {mae:.4f}")
             
-            if re < best_metric_val:
-                best_metric_val = re
+            if re < best_re:
+                best_re, best_rmse, best_mae = re, rmse, mae
                 torch.save(model.state_dict(), '{}/exp-{}_s-{}_{}.pth'.format(model_save_dir, EXP_NUM, i+1, model_config['name']))
                 print("New best model saved ...")
+        results[(i + 1, model_name)] = {
+            're': best_re,
+            'rmse': best_rmse,
+            'mae': best_mae
+        }
+
+# 逐行打印每个 (seed, model_name) 组合的最佳结果
+for (seed, model_name), result in sorted(results.items(), key=lambda x: (x[0][1], x[0][0])):
+    print(f"Seed: {seed}, Model: {model_name}, Best RE: {result['re']:.3f}, Best RMSE: {result['rmse']:.4f}, Best MAE: {result['mae']:.4f}")

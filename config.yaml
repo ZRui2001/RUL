@@ -63,7 +63,7 @@ models:
     feature_num: 16  # 只有容量的话,重复feature_num次
     num_layers: 3
     nhead: 1
-    dropout: 1e-3
+    dropout: 0.001
     noise_level: 0.01
     alpha: 0.1  # 正则化系数
 
