@@ -10,7 +10,7 @@ def get_failure_idx(seq, threshold):
     return float('nan')
 
 # 读取数据：data_file(.npy) -> norm_sequence_data, failure_time
-def read_and_norm(data_path, rated_capacity=1.1, failure_threshold=0.7, use_failure_data=True):
+def read_and_norm(data_path, rated_capacity=1.1, failure_threshold=0.7):
     data = np.load(data_path, allow_pickle=True).item()
     # 标准化：对 capacity 数组整体除以额定容量
     norm_data = {battery_name: df['capacity'].values / rated_capacity for battery_name, df in data.items()}
@@ -19,12 +19,6 @@ def read_and_norm(data_path, rated_capacity=1.1, failure_threshold=0.7, use_fail
     for battery, data in norm_data.items():
         failure_time[battery] = get_failure_idx(data, failure_threshold) + 1
     
-    if not use_failure_data:
-        # 截去失效后数据（包含失效点）
-        for bat, seq in norm_data.items():
-            fail_idx = failure_time[bat] - 1
-            norm_data[bat] = seq[:(fail_idx + 1)]
-
     return norm_data, failure_time
 
 # 数据划分：battery_data（字典） -> train_data, test_data
@@ -59,7 +53,15 @@ class TimeSeriesDataset(Dataset):
         return self.sequences[idx], self.labels[idx]
 
 # dataloader：train_data(dict), test_data -> train_loader, test_loader
-def load_data(train_data, test_data, seq_length, batch_size):
+def load_data(train_data, test_data, seq_length, batch_size, use_failure_data=True, failure_time=None, test_bat=None):
+    if not use_failure_data:
+        # 截去失效后数据（包含失效点）
+        for bat, seq in train_data.items():
+            fail_idx = failure_time[bat] - 1
+            train_data[bat] = seq[:(fail_idx + 1)]
+        fail_idx = failure_time[test_bat]
+        test_data = test_data[:(fail_idx + 1)]
+
     # 滑动窗口：生成序列数据样本和标签
     train_sequences, train_labels = [], []
     for _, data in train_data.items():

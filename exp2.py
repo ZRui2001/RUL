@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 # 实验编号
 EXP_NUM = 2
+use_failure_data = False
 
 # 测试模型
 model_names = ['lstm', 'gru', 'det']
@@ -34,9 +35,9 @@ for i in tqdm(range(len(seeds))):
         model_label = 'exp-{}_{}_s-{}'.format(EXP_NUM, model_config['name'], i+1)
 
         # dataloader
-        norm_data, failure_time = read_and_norm(data_path, rated_capacity, failure_threshold, False)  # 包括失效后数据
+        norm_data, failure_time = read_and_norm(data_path, rated_capacity, failure_threshold)  # 不包括失效后数据
         train_data, test_data = split_data(norm_data, test_bat)
-        train_loader, test_loader = load_data(train_data, test_data, seq_length, batch_size)
+        train_loader, test_loader = load_data(train_data, test_data, seq_length, batch_size, use_failure_data, failure_time, test_bat)
 
         # 模型、优化器
         model = get_model(model_config, device)
