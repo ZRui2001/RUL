@@ -34,29 +34,28 @@ for i in tqdm(range(len(seeds))):
         model_label = 'exp-{}_{}_s-{}'.format(EXP_NUM, model_config['name'], i+1)
 
         # dataloader
-        norm_data, failure_time = read_and_norm(data_path, rated_capacity, failure_threshold)  # 包括失效后数据
-        train_data, test_data = split_data(norm_data, test_bat)
-        train_loader, test_loader = load_data(train_data, test_data, seq_length, batch_size)
+        batteries_df = read_and_norm(data_path, rated_capacity, failure_threshold)  
+        train_df, val_df, test_df, train_loader, val_loader, test_loader = load_data(batteries_df, val_bat, test_bat, seq_length, batch_size)  # 包括失效后数据
 
         # 模型、优化器
         model = get_model(model_config, device)
         optimizer = get_optimizer(optim_name, model, lr, alpha)
         criterion = nn.MSELoss()
 
-        # 训练，保存测试集上 re 最好的模型
-        best_test_loss = float('inf')
+        # 训练，保存验证集上 re 最好的模型
+        best_val_loss = float('inf')
         for epoch in range(epochs):
             train_loss = train_epoch(model_config, model, train_loader, device, optimizer, criterion)
-            test_loss = test_epoch(model_config, model, test_loader, device, criterion)
+            val_loss = test_epoch(model_config, model, test_loader, device, criterion)
             # 从第一个窗口开始迭代预测，得到预测曲线（包含第一个窗口）
-            actual_seq, sp = test_data, 0
-            pred_seq = predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, device)
-            re, rmse, mae = cal_metrics(actual_seq, pred_seq, sp, seq_length, failure_threshold)
+            val_seq, sp = val_df['capacity'].to_numpy(), 0.0
+            pred_seq = predict(model_config, model, sp, val_seq, seq_length, failure_threshold, device)
+            re, rmse, mae = cal_metrics(val_seq, pred_seq, sp, seq_length, failure_threshold)
 
-            print(f"Seed: {i+1}, Model: {model_name}, Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.8f}, Test Loss: {test_loss:.8f}, Test RE: {re:.3f}, Test RMSE: {rmse:.4f}, Test MAE: {mae:.4f}")
+            print(f"Seed: {i+1}, Model: {model_name}, Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.8f}, Val Loss: {val_loss:.8f}, Val RE: {re:.3f}, Val RMSE: {rmse:.4f}, Val MAE: {mae:.4f}")
             
-            if test_loss < best_test_loss:
-                best_test_loss = test_loss
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
                 best_re, best_rmse, best_mae = re, rmse, mae
                 torch.save(model.state_dict(), '{}/{}.pth'.format(model_save_dir, model_label))
                 print("New best model saved ...")

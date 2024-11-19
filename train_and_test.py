@@ -12,9 +12,11 @@ from data_preprocess import *
 from models.LSTM import LSTM
 from models.GRU import GRU
 from models.DeTransformer import DeTransformer
+from models.model_v1 import model_v1
 from typing import List, Dict
 
 def set_seed(seed):
+    os.environ['PYTHONHASHSEED'] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -30,6 +32,9 @@ def get_model(model_config, device):
         return GRU(**model_config).to(device)
     elif model_name == 'det':
         return DeTransformer(**model_config).to(device)
+    elif model_name == 'model_v1':
+        return model_v1(**model_config).to(device)
+    
     else:
         raise ValueError(f"Unknown model: {model_name}")
     
@@ -44,10 +49,13 @@ def get_optimizer(optim_name, model, lr, alpha=None):
 def forward_prop(model_config, model, x):
     decodes = None
     if model_config['name'] == 'det':
-        x = x.unsqueeze(-1).permute(0, 2, 1).repeat(1, model_config['feature_num'], 1)
+        x = x.permute(0, 2, 1).repeat(1, model_config['feature_num'], 1)
         outputs, decodes = model(x)
     else:
-        outputs = model(x.unsqueeze(-1))
+        if x.shape[-1] == 64:
+            print(x.shape)
+            print(x)
+        outputs = model(x)
 
     return outputs, decodes
 
@@ -55,7 +63,7 @@ def get_loss(model_config, model, sequences, labels, criterion):
     outputs, decodes = forward_prop(model_config, model, sequences)
     loss = criterion(outputs, labels.unsqueeze(-1))
     if model_config['name'] == 'det':
-        loss += model_config['alpha'] * criterion(sequences.unsqueeze(-1).permute(0, 2, 1).repeat(1, model_config['feature_num'], 1), decodes)
+        loss += model_config['alpha'] * criterion(sequences.permute(0, 2, 1).repeat(1, model_config['feature_num'], 1), decodes)
     return loss
 
 def train_epoch(model_config, model, train_loader, device, optimizer, criterion):
@@ -96,7 +104,7 @@ def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, 
         num_preds = len(actual_seq) - start_idx  # 让预测曲线与真实曲线同时结束
         preds = actual_seq[:start_idx]
         for _ in range(num_preds):
-            input_seq = torch.tensor(preds[-seq_length:], dtype=torch.float32).to(device).unsqueeze(0)
+            input_seq = torch.tensor(preds[-seq_length:], dtype=torch.float32).to(device).reshape(1, -1, 1)
             pred, _ = forward_prop(model_config, model, input_seq)
             preds = np.append(preds, pred.item())
     return preds

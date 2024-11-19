@@ -2,15 +2,24 @@
 data:
   CALCE:
     data_dir: data/CALCE/
-    data_path: data/CALCE/CALCE.npy
+    data_path: data/CALCE/CALCE.csv
     rated_capacity: 1.1
     failure_threshold: 0.7
+    val_bat: CS2_36
     test_bat: CS2_35
 
     # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
     seq_length: 64 
   NASA:
-    file_path: data/NASA/NASA.npy
+    data_dir: data/NASA/
+    data_path: data/NASA/NASA.csv
+    rated_capacity: 2.0
+    failure_threshold: 0.7
+    val_bat: B0006
+    test_bat: B0005
+
+    # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
+    seq_length: 16
 
 # 模型配置
 models:
@@ -66,6 +75,25 @@ models:
     dropout: 0.001
     noise_level: 0.01
     alpha: 0.1  # 正则化系数
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 0.001
+
+  model_v1:
+    name: model_v1
+
+    # 网络参数
+    input_dim: 1
+    model_dim: 16
+    num_heads: 1
+    num_layers: 3
+    output_dim: 1
+    dropout: 0.1
 
     # 训练
     optimizer: adam
