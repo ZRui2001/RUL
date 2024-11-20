@@ -89,8 +89,36 @@ class TimeSeriesDataset(Dataset):
     def __getitem__(self, idx):
         return self.sequences[idx], self.labels[idx]
 
-# dataloader：train_data(dict), test_data -> train_loader, test_loader
-def load_data(batteries_df, val_bat, test_bat, seq_length, batch_size, features='capacity', use_failure_data=True):
+def get_loader(batteries_df, bats, seq_length, batch_size, shuffle, features='capacity', use_failure_data=True):
+    if bats is None:
+        return None, None
+
+    bats = np.atleast_1d(bats)
+    features = np.atleast_1d(features)
+
+    x, y, data = [], [], []
+    for bat in bats:
+        condition = batteries_df['battery'] == bat
+        bat_df = batteries_df[condition]
+        seq_arr = bat_df.loc[:, features].to_numpy()
+
+        if not use_failure_data:
+            failure_cycle = bat_df['failure_cycle'].iloc[0]
+            seq_arr = seq_arr[:failure_cycle]
+    
+        seqs, labels = create_sequences(seq_arr, seq_length=seq_length)
+        x.extend(seqs)
+        y.extend(labels)
+        data.append(bat_df)
+
+    data_df = pd.concat(data, ignore_index=True)
+
+    dataset = TimeSeriesDataset(x, y)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+    return data_df, dataloader
+
+def load_data(batteries_df, test_bat, seq_length, batch_size, features='capacity', val_bat=None, use_failure_data=True):
     '''
     1. 划分数据集为训练、验证、测试
     2. 滑动窗口创造样本
@@ -105,53 +133,11 @@ def load_data(batteries_df, val_bat, test_bat, seq_length, batch_size, features=
     返回:
     train_df, val_df, test_df, train_loader, val_loader, test_loader
     '''
-    # 统一处理为一维array
-    val_bat = np.atleast_1d(val_bat)
-    test_bat = np.atleast_1d(test_bat)
-    features = np.atleast_1d(features)
-    
-    train_sequences, train_labels = [], []
-    val_sequences, val_labels = [], []
-    test_sequences, test_labels = [], []
-    train_data, val_data, test_data = [], [], []
-
     batteries = batteries_df['battery'].unique()
-    for bat in batteries:
-        condition = batteries_df['battery'] == bat
-        battery_df = batteries_df[condition]
-        seq_df = battery_df.loc[:, features]
-        seq_arr = seq_df.to_numpy()  # shape: (num_cycles, num_features), 容量在第一列
+    train_bats = [bat for bat in batteries if bat != (test_bat, val_bat)]
 
-        # 截去失效后数据（保留失效点）
-        if not use_failure_data:
-            failure_cycle = battery_df['failure_cycle'][0]
-            seq_arr = seq_arr[:failure_cycle]
-
-        # 滑动窗口：生成序列数据样本和标签
-        seqs, labels = create_sequences(seq_arr, seq_length=seq_length)
-        if bat == val_bat:
-            val_sequences.extend(seqs)
-            val_labels.extend(labels)
-            val_data.append(battery_df)
-        elif bat == test_bat:
-            test_sequences.extend(seqs)
-            test_labels.extend(labels)
-            test_data.append(battery_df)
-        else:
-            train_sequences.extend(seqs)
-            train_labels.extend(labels)
-            train_data.append(battery_df)
-
-    train_df = pd.concat(train_data, ignore_index=True)
-    val_df = pd.concat(val_data, ignore_index=True)
-    test_df = pd.concat(test_data, ignore_index=True)
-
-    # 创建 DataLoader
-    train_dataset = TimeSeriesDataset(train_sequences, train_labels)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataset = TimeSeriesDataset(val_sequences, val_labels)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_dataset = TimeSeriesDataset(test_sequences, test_labels)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    train_df, train_loader = get_loader(batteries_df, train_bats, seq_length, batch_size, True, features, use_failure_data)
+    val_df, val_loader = get_loader(batteries_df, val_bat, seq_length, batch_size, False, features, use_failure_data)
+    test_df, test_loader = get_loader(batteries_df, test_bat, seq_length, batch_size, False, features, use_failure_data)
 
     return train_df, val_df, test_df, train_loader, val_loader, test_loader

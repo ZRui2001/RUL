@@ -5,7 +5,7 @@ data:
     data_path: data/CALCE/CALCE.csv
     rated_capacity: 1.1
     failure_threshold: 0.7
-    val_bat: CS2_36
+    val_bat: 
     test_bat: CS2_35
 
     # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
@@ -15,7 +15,7 @@ data:
     data_path: data/NASA/NASA.csv
     rated_capacity: 2.0
     failure_threshold: 0.7
-    val_bat: B0006
+    val_bat: 
     test_bat: B0005
 
     # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
