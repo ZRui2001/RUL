@@ -67,7 +67,7 @@ models:
     name: det
 
     # 网络参数
-    feature_size: 64  # seq_length
+    # feature_size: 64  # seq_length
     hidden_dim: 16
     feature_num: 16  # 只有容量的话,重复feature_num次
     num_layers: 3

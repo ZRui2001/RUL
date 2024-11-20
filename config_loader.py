@@ -6,7 +6,7 @@ import yaml
 import torch
 
 # 数据集
-DATASET = 'CALCE'
+DATASET = 'NASA'
 
 # 加载配置文件
 with open('config.yaml', 'r', encoding='utf-8') as file:

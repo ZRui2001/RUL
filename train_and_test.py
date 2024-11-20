@@ -24,14 +24,14 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def get_model(model_config, device):
+def get_model(model_config, device, seq_length=None):
     model_name = model_config['name']
     if model_name == 'lstm':
         return LSTM(**model_config).to(device)
     elif model_name == 'gru':
         return GRU(**model_config).to(device)
     elif model_name == 'det':
-        return DeTransformer(**model_config).to(device)
+        return DeTransformer(feature_size=seq_length, **model_config).to(device)
     elif model_name == 'model_v1':
         return model_v1(**model_config).to(device)
     
@@ -98,6 +98,10 @@ def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, 
     输出：预测曲线（包含预测点前的真实值）
     '''
     model.eval()
+    if actual_seq[-1] > failure_threshold:
+        # B0007没有低于失效阈值的点
+        actual_seq = np.append(actual_seq, failure_threshold - 1e-6)
+
     start_idx = int((get_failure_idx(actual_seq, failure_threshold) + 1) * sp)
     start_idx = max(start_idx, seq_length)
     with torch.no_grad():
@@ -129,6 +133,10 @@ def test(model_name, model_path, all_config):
     return actual_seq, pred_seq, start_idx
 
 def cal_metrics(actual_seq, pred_seq, sp, seq_length, failure_threshold=0.7):
+    if actual_seq[-1] > failure_threshold:
+        # B0007没有低于失效阈值的点
+        actual_seq = np.append(actual_seq, failure_threshold - 1e-6)
+
     start_idx = int((get_failure_idx(actual_seq, failure_threshold) + 1) * sp)
     start_idx = max(start_idx, seq_length)
     # RE
@@ -156,6 +164,10 @@ def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, s
             - key (str): Name of model.
             - val (List): Prediction sequence, including actual values ahead start point.
     '''
+    if actual_seq[-1] > failure_threshold:
+        # B0007没有低于失效阈值的点
+        actual_seq = np.append(actual_seq, failure_threshold - 1e-6)
+
     start_idx = int((get_failure_idx(actual_seq, failure_threshold) + 1) * sp)
     start_idx = max(start_idx, seq_length)
     colors = cm.viridis(np.linspace(0, 1, len(pred_seqs)))
@@ -170,7 +182,8 @@ def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, s
     plt.ylabel('SOH')
     plt.legend()
     plt.title(f'SOH degredation of {test_bat} (SP = {sp})')
-    plt.show()
+
+    return plt
 
 def eval_and_plot(model_names, model_paths, all_config):
     local_config = all_config[model_names[0]]
