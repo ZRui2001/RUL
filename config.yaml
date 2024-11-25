@@ -7,6 +7,7 @@ data:
     failure_threshold: 0.7
     val_bat: 
     test_bat: CS2_35
+    bats: [CS2_35, CS2_36, CS2_37, CS2_38]
 
     # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
     seq_length: 64 
@@ -17,6 +18,7 @@ data:
     failure_threshold: 0.7
     val_bat: 
     test_bat: B0005
+    bats: [B0005, B0006, B0007, B0018]
 
     # 默认使用该参数创造样本, 若各模型窗口不一致时使用其内部的seq_length
     seq_length: 16
