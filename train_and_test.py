@@ -13,6 +13,10 @@ from models.LSTM import LSTM
 from models.GRU import GRU
 from models.DeTransformer import DeTransformer
 from models.model_v1 import model_v1
+from models.model_v2 import model_v2
+from models.model_v2_1 import model_v2_1
+from models.model_v3 import model_v3
+from models.model_v4 import model_v4
 from typing import List, Dict
 
 def set_seed(seed):
@@ -34,6 +38,14 @@ def get_model(model_config, device, seq_length=None):
         return DeTransformer(feature_size=seq_length, **model_config).to(device)
     elif model_name == 'model_v1':
         return model_v1(**model_config).to(device)
+    elif model_name == 'model_v2':
+        return model_v2(**model_config).to(device)
+    elif model_name == 'model_v2_1':
+        return model_v2_1(**model_config).to(device)
+    elif model_name == 'model_v3':
+        return model_v3(**model_config).to(device)
+    elif model_name == 'model_v4':
+        return model_v4(**model_config).to(device)
     
     else:
         raise ValueError(f"Unknown model: {model_name}")
@@ -112,25 +124,6 @@ def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, 
             pred, _ = forward_prop(model_config, model, input_seq)
             preds = np.append(preds, pred.item())
     return preds
-
-def test(model_name, model_path, all_config):
-    # 超参数
-    config = all_config[model_name]
-
-    # 加载模型
-    model, _ = get_model_and_optim(model_name, all_config)
-    model.load_state_dict(torch.load(model_path))
-    model.eval()  # 设置模型为评估模式
-
-    # 获取真实值序列
-    battery_data, failure_time = read_and_norm(config['data_path'])
-    actual_seq = battery_data[config['test_battery_name']]
-
-    # 获取预测起始点，迭代预测
-    start_idx = int(failure_time[config['test_battery_name']] * config['start_point'])
-    pred_seq = predict(model_name, model, start_idx, actual_seq, config['seq_length'], config['device'], all_config)
-
-    return actual_seq, pred_seq, start_idx
 
 def cal_metrics(actual_seq, pred_seq, sp, seq_length, failure_threshold=0.7):
     if actual_seq[-1] > failure_threshold:
