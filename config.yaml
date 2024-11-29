@@ -143,6 +143,44 @@ models:
     batch_size: 32
     lr: 0.001
 
+  model_v3:
+    name: model_v3
+
+    # 网络参数
+    input_dim: 1
+    model_dim: 16
+    num_heads: 1
+    num_layers: 3
+    output_dim: 1
+    dropout: 0.1
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 0.001
+
+  model_v4:
+    name: model_v4
+
+    # 网络参数
+    input_dim: 1
+    model_dim: 16
+    num_heads: 1
+    num_layers: 3
+    output_dim: 1
+    dropout: 0.1
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 0.001
+
 # 其他配置
 start_points: [0.0, 0.3, 0.5, 0.7]
 model_save_dir: saved_models/

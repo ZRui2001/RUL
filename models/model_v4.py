@@ -5,83 +5,8 @@ import torch
 import torch.nn as nn
 import math
 
-class MultiScaleAttention(nn.Module):
-    def __init__(self, d_model, nhead):
-        """
-        多尺度注意力模块，支持动态设置局部窗口大小。
-        参数:
-        - d_model: 模型的嵌入维度
-        - nhead: 多头注意力的头数
-        """
-        super(MultiScaleAttention, self).__init__()
-        self.global_attention = nn.MultiheadAttention(embed_dim=d_model, num_heads=nhead)
-        self.local_attention = nn.MultiheadAttention(embed_dim=d_model, num_heads=nhead)
-
-    def forward(self, x, local_window_size):
-        """
-        参数:
-        - x: 输入序列，形状为 (seq_len, batch_size, d_model)
-        - local_window_size: 动态计算的局部窗口大小
-        
-        返回:
-        - 融合后的注意力结果，形状为 (seq_len, batch_size, d_model)
-        """
-        seq_len, batch_size, d_model = x.shape
-
-        # 全局注意力
-        global_out, _ = self.global_attention(x, x, x)
-
-        # 局部注意力
-        local_out = torch.zeros_like(x)
-        for i in range(0, seq_len, local_window_size):
-            start = max(0, i)
-            end = min(seq_len, i + local_window_size)
-            local_out[start:end], _ = self.local_attention(
-                x[start:end], x[start:end], x[start:end]
-            )
-
-        # 融合全局和局部注意力
-        return global_out + local_out
-
-
-class MultiScaleTransformerEncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
-        super(MultiScaleTransformerEncoderLayer, self).__init__()
-        self.multi_scale_attention = MultiScaleAttention(d_model, nhead)
-        self.feedforward = nn.Sequential(
-            nn.Linear(d_model, dim_feedforward),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(dim_feedforward, d_model),
-        )
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, src, seq_length):
-        """
-        参数:
-        - src: 输入序列，形状为 (seq_len, batch_size, d_model)
-        - seq_length: 输入序列长度，用于动态设置 local_window_size
-        返回:
-        - 输出序列，形状为 (seq_len, batch_size, d_model)
-        """
-        local_window_size = max(1, seq_length // 4)  # 动态设置窗口大小，最小为 1
-
-        # 多尺度注意力
-        src2 = self.multi_scale_attention(src, local_window_size)
-        src = src + self.dropout(src2)
-        src = self.norm1(src)
-
-        # 前馈网络
-        src2 = self.feedforward(src)
-        src = src + self.dropout(src2)
-        src = self.norm2(src)
-        return src
-
-
 class model_v4(nn.Module):
-    def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim, dropout=0.1):
+    def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim, dropout=0.1, **kwargs):
         """
         带动态多尺度注意力的 Transformer 模型。
         """
@@ -160,3 +85,79 @@ class PositionalEncoding(nn.Module):
         """
         x = x + self.pe[:, :x.size(1), :]
         return self.dropout(x)
+
+class MultiScaleAttention(nn.Module):
+    def __init__(self, d_model, nhead):
+        """
+        多尺度注意力模块，支持动态设置局部窗口大小。
+        参数:
+        - d_model: 模型的嵌入维度
+        - nhead: 多头注意力的头数
+        """
+        super(MultiScaleAttention, self).__init__()
+        self.global_attention = nn.MultiheadAttention(embed_dim=d_model, num_heads=nhead)
+        self.local_attention = nn.MultiheadAttention(embed_dim=d_model, num_heads=nhead)
+
+    def forward(self, x, local_window_size):
+        """
+        参数:
+        - x: 输入序列，形状为 (seq_len, batch_size, d_model)
+        - local_window_size: 动态计算的局部窗口大小
+        
+        返回:
+        - 融合后的注意力结果，形状为 (seq_len, batch_size, d_model)
+        """
+        seq_len, batch_size, d_model = x.shape
+
+        # 全局注意力
+        global_out, _ = self.global_attention(x, x, x)
+
+        # 局部注意力
+        local_out = torch.zeros_like(x)
+        for i in range(0, seq_len, local_window_size):
+            start = max(0, i)
+            end = min(seq_len, i + local_window_size)
+            local_out[start:end], _ = self.local_attention(
+                x[start:end], x[start:end], x[start:end]
+            )
+
+        # 融合全局和局部注意力
+        return global_out + local_out
+
+
+class MultiScaleTransformerEncoderLayer(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+        super(MultiScaleTransformerEncoderLayer, self).__init__()
+        self.multi_scale_attention = MultiScaleAttention(d_model, nhead)
+        self.feedforward = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim_feedforward, d_model),
+        )
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, src, seq_length):
+        """
+        参数:
+        - src: 输入序列，形状为 (seq_len, batch_size, d_model)
+        - seq_length: 输入序列长度，用于动态设置 local_window_size
+        返回:
+        - 输出序列，形状为 (seq_len, batch_size, d_model)
+        """
+        local_window_size = max(1, seq_length // 4)  # 动态设置窗口大小，最小为 1
+
+        # 多尺度注意力
+        src2 = self.multi_scale_attention(src, local_window_size)
+        src = src + self.dropout(src2)
+        src = self.norm1(src)
+
+        # 前馈网络
+        src2 = self.feedforward(src)
+        src = src + self.dropout(src2)
+        src = self.norm2(src)
+        return src
+
+

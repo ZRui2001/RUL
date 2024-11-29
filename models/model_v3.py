@@ -7,7 +7,7 @@ import torch.nn as nn
 import math
 
 class model_v3(nn.Module):
-    def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim, dropout=0.1):
+    def __init__(self, input_dim, model_dim, num_heads, num_layers, output_dim, dropout=0.1, **kwargs):
         """
         带因果注意力的 Transformer 模型。
         """
