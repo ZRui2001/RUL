@@ -142,6 +142,25 @@ models:
     epochs: 200
     batch_size: 32
     lr: 0.001
+  
+  model_v2_2:
+    name: model_v2_2
+
+    # 网络参数
+    input_dim: 1
+    model_dim: 16
+    num_heads: 1
+    num_layers: 3
+    output_dim: 1
+    dropout: 0.1
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 0.001
 
   model_v3:
     name: model_v3
@@ -164,6 +183,44 @@ models:
 
   model_v4:
     name: model_v4
+
+    # 网络参数
+    input_dim: 1
+    model_dim: 16
+    num_heads: 1
+    num_layers: 3
+    output_dim: 1
+    dropout: 0.1
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 0.001
+  
+  model_v4_1:
+    name: model_v4_1
+
+    # 网络参数
+    input_dim: 1
+    model_dim: 16
+    num_heads: 1
+    num_layers: 3
+    output_dim: 1
+    dropout: 0.1
+
+    # 训练
+    optimizer: adam
+    loss: mse
+    metric: re
+    epochs: 200
+    batch_size: 32
+    lr: 0.001
+  
+  model_v5:
+    name: model_v5
 
     # 网络参数
     input_dim: 1

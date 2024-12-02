@@ -15,8 +15,11 @@ from models.DeTransformer import DeTransformer
 from models.model_v1 import model_v1
 from models.model_v2 import model_v2
 from models.model_v2_1 import model_v2_1
+from models.model_v2_2 import model_v2_2
 from models.model_v3 import model_v3
 from models.model_v4 import model_v4
+from models.model_v4_1 import model_v4_1
+from models.model_v5 import model_v5
 from typing import List, Dict
 
 def set_seed(seed):
@@ -42,10 +45,16 @@ def get_model(model_config, device, seq_length=None):
         return model_v2(**model_config).to(device)
     elif model_name == 'model_v2_1':
         return model_v2_1(**model_config).to(device)
+    elif model_name == 'model_v2_2':
+        return model_v2_2(**model_config).to(device)
     elif model_name == 'model_v3':
         return model_v3(**model_config).to(device)
     elif model_name == 'model_v4':
         return model_v4(**model_config).to(device)
+    elif model_name == 'model_v4_1':
+        return model_v4_1(**model_config).to(device)
+    elif model_name == 'model_v5':
+        return model_v5(**model_config).to(device)
     
     else:
         raise ValueError(f"Unknown model: {model_name}")
