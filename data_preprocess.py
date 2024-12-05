@@ -134,7 +134,7 @@ def load_data(batteries_df, test_bat, seq_length, batch_size, features='capacity
     train_df, val_df, test_df, train_loader, val_loader, test_loader
     '''
     batteries = batteries_df['battery'].unique()
-    train_bats = [bat for bat in batteries if bat != (test_bat, val_bat)]
+    train_bats = [bat for bat in batteries if bat not in (test_bat, val_bat)]
 
     train_df, train_loader = get_loader(batteries_df, train_bats, seq_length, batch_size, True, features, use_failure_data)
     val_df, val_loader = get_loader(batteries_df, val_bat, seq_length, batch_size, False, features, use_failure_data)

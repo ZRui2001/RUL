@@ -4,6 +4,7 @@
 
 import torch
 import torch.nn as nn
+import math
 
 class model_v4_1(nn.Module):
     def __init__(self, input_dim, model_dim, num_heads, num_layers, dropout=0.1, **kwargs):
@@ -28,10 +29,11 @@ class model_v4_1(nn.Module):
     def forward(self, x):
         # 线性嵌入
         x = self.embedding(x)  # [batch_size, seq_len, model_dim]
-        x = x.permute(0, 2, 1)  # [batch_size, model_dim, seq_len]
 
         # 添加位置编码
         x = self.position_encoding(x)
+
+        x = x.permute(0, 2, 1)  # [batch_size, model_dim, seq_len]
 
         # 后续 Inception + Transformer 层
         for layer in self.layers:
@@ -119,20 +121,38 @@ class inception_transformer_block(nn.Module):
         return transformer_out.permute(1, 2, 0)  # 转回 [batch_size, model_dim, seq_len]
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, model_dim, max_len=5000):
+    def __init__(self, model_dim, dropout=0.1, max_len=5000):
+        """
+        位置编码模块，使用正弦和余弦函数生成位置编码。
+        
+        参数:
+        - model_dim: Transformer 的隐藏层维度
+        - dropout: dropout 概率
+        - max_len: 最大序列长度
+        """
         super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        # 创建位置编码矩阵
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, model_dim, 2) * (-math.log(10000.0) / model_dim))
         pe = torch.zeros(max_len, model_dim)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, model_dim, 2).float() * (-torch.log(torch.tensor(10000.0)) / model_dim))
-        pe[:, 0::2] = torch.sin(position * div_term)  # 偶数维度
-        pe[:, 1::2] = torch.cos(position * div_term)  # 奇数维度
-        self.pe = pe.unsqueeze(0)  # [1, max_len, model_dim]
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)  # (1, max_len, model_dim)
+        
+        self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # x 的形状: [batch_size, model_dim, seq_len]
-        seq_len = x.size(-1)
-        pe = self.pe[:, :seq_len, :].transpose(1, 2)  # 调整为 [1, model_dim, seq_len]
-        return x + pe
+        """
+        参数:
+        - x: 输入张量，形状为 (batch_size, seq_length, model_dim)
+        
+        返回:
+        - 加入位置编码后的张量，形状为 (batch_size, seq_length, model_dim)
+        """
+        x = x + self.pe[:, :x.size(1), :]
+        return self.dropout(x)
     
 # # 参数定义
 # input_dim = 1

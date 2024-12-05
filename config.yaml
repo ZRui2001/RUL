@@ -40,7 +40,7 @@ models:
     optimizer: rmsprop
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
     alpha: 0.99  # 优化器的超参数
@@ -61,7 +61,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
@@ -82,7 +82,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
@@ -101,7 +101,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
@@ -120,7 +120,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
@@ -139,7 +139,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
   
@@ -158,7 +158,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
@@ -177,7 +177,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
@@ -196,7 +196,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
   
@@ -215,7 +215,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
   
@@ -234,7 +234,7 @@ models:
     optimizer: adam
     loss: mse
     metric: re
-    epochs: 200
+    epochs: 100
     batch_size: 32
     lr: 0.001
 
