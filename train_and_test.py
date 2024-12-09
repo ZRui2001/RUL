@@ -22,6 +22,7 @@ from models.model_v4_1 import model_v4_1
 from models.model_v5 import model_v5
 from typing import List, Dict
 
+
 def set_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
     random.seed(seed)
@@ -30,6 +31,7 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
 
 def get_model(model_config, device, seq_length=None):
     model_name = model_config['name']
@@ -55,10 +57,11 @@ def get_model(model_config, device, seq_length=None):
         return model_v4_1(**model_config).to(device)
     elif model_name == 'model_v5':
         return model_v5(**model_config).to(device)
-    
+
     else:
         raise ValueError(f"Unknown model: {model_name}")
-    
+
+
 def get_optimizer(optim_name, model, lr, alpha=None):
     if optim_name == 'adam':
         return optim.Adam(model.parameters(), lr)
@@ -66,6 +69,7 @@ def get_optimizer(optim_name, model, lr, alpha=None):
         return optim.RMSprop(model.parameters(), lr, alpha)
     else:
         raise ValueError(f"Unknown optimizer: {optim_name}")
+
 
 def forward_prop(model_config, model, x):
     decodes = None
@@ -80,12 +84,15 @@ def forward_prop(model_config, model, x):
 
     return outputs, decodes
 
+
 def get_loss(model_config, model, sequences, labels, criterion):
     outputs, decodes = forward_prop(model_config, model, sequences)
     loss = criterion(outputs, labels.unsqueeze(-1))
     if model_config['name'] == 'det':
-        loss += model_config['alpha'] * criterion(sequences.permute(0, 2, 1).repeat(1, model_config['feature_num'], 1), decodes)
+        loss += model_config['alpha'] * criterion(sequences.permute(0, 2, 1).repeat(1, model_config['feature_num'], 1),
+                                                  decodes)
     return loss
+
 
 def train_epoch(model_config, model, train_loader, device, optimizer, criterion):
     model.train()
@@ -100,6 +107,7 @@ def train_epoch(model_config, model, train_loader, device, optimizer, criterion)
     train_loss /= len(train_loader)
     return train_loss
 
+
 def test_epoch(model_config, model, test_loader, device, criterion):
     model.eval()
     test_loss = 0
@@ -109,6 +117,7 @@ def test_epoch(model_config, model, test_loader, device, criterion):
             test_loss += get_loss(model_config, model, sequences, labels, criterion).item()
     test_loss /= len(test_loader)
     return test_loss
+
 
 def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, device):
     '''
@@ -134,6 +143,7 @@ def predict(model_config, model, sp, actual_seq, seq_length, failure_threshold, 
             preds = np.append(preds, pred.item())
     return preds
 
+
 def cal_metrics(actual_seq, pred_seq, sp, seq_length, failure_threshold=0.7):
     if actual_seq[-1] > failure_threshold:
         # B0007没有低于失效阈值的点
@@ -149,12 +159,13 @@ def cal_metrics(actual_seq, pred_seq, sp, seq_length, failure_threshold=0.7):
         re = 1.000
 
     # 指标计算的时间边界，设为真实值的失效点
-    end_idx = actual_failure_idx    
+    end_idx = actual_failure_idx
     # RMSE
-    rmse = np.sqrt(np.mean((actual_seq[start_idx:(end_idx + 1)] - pred_seq[start_idx:(end_idx + 1)]) ** 2))    
+    rmse = np.sqrt(np.mean((actual_seq[start_idx:(end_idx + 1)] - pred_seq[start_idx:(end_idx + 1)]) ** 2))
     # MAE
     mae = np.mean(np.abs(actual_seq[start_idx:(end_idx + 1)] - pred_seq[start_idx:(end_idx + 1)]))
     return re, rmse, mae
+
 
 def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, seq_length, test_bat, figsize=(12, 6)):
     '''
@@ -175,7 +186,8 @@ def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, s
     colors = cm.viridis(np.linspace(0, 1, len(pred_seqs)))
     plt.figure(figsize=figsize)
     for (model_key, pred_seq), color in zip(pred_seqs.items(), colors):
-        plt.plot(range(start_idx, len(pred_seq)), pred_seq[start_idx:], color=color, linestyle='--', linewidth=1.5, label=model_key)  # 预测值曲线
+        plt.plot(range(start_idx, len(pred_seq)), pred_seq[start_idx:], color=color, linestyle='--', linewidth=1.5,
+                 label=model_key)  # 预测值曲线
     plt.plot(actual_seq, color='darkblue', linestyle='-', linewidth=1.5, label='Actual SOH')  # 真实值曲线
     plt.axhline(y=failure_threshold, color='red', linestyle='--', linewidth=2.5, label='Failure Threshold')  # 失效阈值线
     plt.axvline(x=start_idx, color='gray', linestyle='--', linewidth=1, label='Prediction Start Point')  # 预测起始点
@@ -187,6 +199,7 @@ def plot(actual_seq, pred_seqs: Dict[str, List[float]], sp, failure_threshold, s
 
     return plt
 
+
 def eval_and_plot(model_names, model_paths, all_config):
     local_config = all_config[model_names[0]]
     failure_threshold = local_config['failure_threshold']
@@ -194,7 +207,7 @@ def eval_and_plot(model_names, model_paths, all_config):
     pred_seqs = []
     for i in range(len(model_names)):
         actual_seq, pred_seq, start_idx = test(model_names[i], model_paths[i], all_config)
-        
+
         # 计算RE、RMSE、MAE
         re, rmse, mae = cal_metrics(actual_seq, pred_seq, start_idx)
         print(f"Model:{model_names[i]}, RE: {re:.3f}, RMSE: {rmse:.4f}, MAE: {mae:.4f}")
@@ -203,12 +216,13 @@ def eval_and_plot(model_names, model_paths, all_config):
 
     plot(model_names, actual_seq, pred_seqs, start_idx, failure_threshold, test_battery_name)
 
+
 def parse_model_filename(filename, pattern=r"exp-(\d+)_(\w+)_s-(\d+)\.pth"):
     match = re.match(pattern, filename)
 
     if match:
-        exp_num = int(match.group(1))     
-        model_name = match.group(2)  
-        s_num = int(match.group(3))     
+        exp_num = int(match.group(1))
+        model_name = match.group(2)
+        s_num = int(match.group(3))
         return exp_num, model_name, s_num
     raise ValueError(f"不符合预期格式的文件名：{filename}")
